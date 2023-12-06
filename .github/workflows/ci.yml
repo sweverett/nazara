@@ -1,0 +1,101 @@
+name: nazara-ci
+
+on:
+  push:
+    branches:
+      - 'master'
+
+  pull_request:
+    branches:
+      - '*'
+
+  schedule:
+    - cron: '00 2 * * *'
+
+jobs:
+  nazara-miniforge:
+    name: Nazara (${{ matrix.os }}, python-${{ matrix.python-version }}, Miniforge)
+    runs-on: ${{ matrix.os }}-latest
+    strategy:
+      matrix:
+        os: ["ubuntu", "macos"]
+        python-version: ["3.13"]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup miniforge
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-update-conda: true
+          activate-environment: nazara
+          python-version: ${{ matrix.python-version }}
+          miniforge-variant: Miniforge3
+          show-channel-urls: true
+          use-mamba: true
+      - name: Cache date
+        id: get-date
+        run: echo "today=$(/bin/date -u '+%Y%m%d')" >> $GITHUB_OUTPUT
+        shell: bash
+      - name: Cache Conda env
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.CONDA }}/envs
+          key: miniforge-${{ runner.os }}--${{ runner.arch }}--python-${{ matrix.python-version }}--${{ steps.get-date.outputs.today }}-${{ hashFiles('environment.yml') }}-${{ env.CACHE_NUMBER }}
+        env:
+          CACHE_NUMBER: 0
+        id: cache
+      - name: Update environment
+        run: |
+          conda env update -q -v -n nazara -f environment.yml
+        if: steps.cache.outputs.cache-hit != 'true'
+      - name: Setting up Nazara
+        shell: bash -l {0}
+        run: |
+          export NAZARA_DIR=${PWD}
+          conda env config vars set FNAZARA_DIR=${NAZARA_DIR}
+          conda activate nazara
+          pip install --no-deps -e .    
+      - name: Ensure clear Jupyter Notebooks
+        uses: ResearchSoftwareActions/EnsureCleanNotebooksAction@1.1
+      - name: Running black check
+        shell: bash -l {0}
+        run: |
+          black --check nazara
+          black --check tests
+          black --check examples
+      - name: Running flake8
+        shell: bash -l {0}
+        run: |
+          flake8 nazara
+          flake8 examples
+          flake8 tests
+      - name: Running mypy
+        shell: bash -l {0}
+        run: |
+          mypy -p nazara
+          mypy -p examples
+          mypy -p tests
+      - name: Running pylint
+        shell: bash -l {0}
+        run: |
+          pylint nazara
+          pylint --rcfile tests/pylintrc  tests
+          pylint --rcfile nazara/pylintrc nazara
+      - name: Running pytest
+        shell: bash -l {0}
+        run: python -m pytest -vv
+      # TODO: Replace w/ our own example when ready
+      # - name: Running example - cosmosis - cosmic-shear
+        # shell: bash -l {0}
+        # run: |
+        #   cd examples/cosmicshear
+        #   python generate_cosmicshear_data.py
+        #   cosmosis cosmicshear.ini
+      - name: Code coverage
+        if: ${{ (matrix.os == 'ubuntu') && (matrix.python-version == '3.13') }}
+        shell: bash -l {0}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python -m pip install --no-input coveralls
+          coverage run --source=nazara -m pytest tests/
+          coveralls --service=github
