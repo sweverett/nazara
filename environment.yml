@@ -1,1 +1,12 @@
-# TODO
+name: nazara
+channels:
+  - conda-forge 
+dependencies:
+  - astropy
+  - numpy
+  - scipy
+  - matplotlib
+  - yaml
+  - galsim
+  - ipython
+  - pudb

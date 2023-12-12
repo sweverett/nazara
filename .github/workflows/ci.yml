@@ -80,9 +80,17 @@ jobs:
           pylint nazara
           pylint --rcfile tests/pylintrc  tests
           pylint --rcfile nazara/pylintrc nazara
-      - name: Running pytest
-        shell: bash -l {0}
-        run: python -m pytest -vv
+
+      # Add a block that runs the tests using unittest
+
+      # Add a block that runs the tests using pytest
+      
+
+
+      # TODO: cleanup once unittest is settled
+      # - name: Running pytest
+      #   shell: bash -l {0}
+      #   run: python -m pytest -vv
       # TODO: Replace w/ our own example when ready
       # - name: Running example - cosmosis - cosmic-shear
         # shell: bash -l {0}
